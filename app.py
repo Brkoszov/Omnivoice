@@ -9,6 +9,12 @@ import os
 import tempfile
 from typing import Any, Dict
 
+try:
+    import spaces
+    _USING_ZERO_GPU = True
+except ImportError:
+    _USING_ZERO_GPU = False
+
 import torch
 import torchaudio
 
@@ -16,7 +22,7 @@ from omnivoice import OmniVoice, OmniVoiceGenerationConfig
 from omnivoice.cli.demo import build_demo
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) 
+logging.basicConfig(level=logging.INFO)
 
 # ---------------------------------------------------------------------------
 # Hardware detection
@@ -29,15 +35,22 @@ logger.info(f"Using device: {DEVICE}")
 # ---------------------------------------------------------------------------
 CHECKPOINT = os.environ.get("OMNIVOICE_MODEL", "k2-fsa/OmniVoice")
 
-logger.info(f"Loading model from {CHECKPOINT} on {DEVICE} ...")
-model = OmniVoice.from_pretrained(
-    CHECKPOINT,
-    device_map=DEVICE,
-    dtype=torch.float16,
-    load_asr=True,
-)
-logger.info("Model loaded on %s.", DEVICE)
-sampling_rate = model.sampling_rate
+model = None
+if not _USING_ZERO_GPU:
+    # Non-ZeroGPU: load model at startup on the best available device
+    logger.info(f"Loading model from {CHECKPOINT} on {DEVICE} ...")
+    model = OmniVoice.from_pretrained(
+        CHECKPOINT,
+        device_map=DEVICE,
+        dtype=torch.float16,
+        load_asr=True,
+    )
+    logger.info("Model loaded on %s.", DEVICE)
+else:
+    logger.info("ZeroGPU mode: model will be loaded inside @spaces.GPU() function.")
+
+sampling_rate = 16000  # fallback; will be overwritten after model loads
+
 
 # ---------------------------------------------------------------------------
 # Generation logic (outside build_demo so we can wrap with spaces.GPU)
@@ -107,17 +120,24 @@ def _gen_core(
 # ZeroGPU wrapper
 # ---------------------------------------------------------------------------
 generate_fn = None
-try:
-    import spaces
-
+if _USING_ZERO_GPU:
     @spaces.GPU()
-    def _gen_gpu(*args, **kwargs):
+    def generate_fn(*args, **kwargs):
+        # Lazy-load model on first call (inside GPU context)
+        global model, sampling_rate
+        if model is None:
+            logger.info(f"Loading model from {CHECKPOINT} on cuda (ZeroGPU) ...")
+            model = OmniVoice.from_pretrained(
+                CHECKPOINT,
+                device_map="cuda",
+                dtype=torch.float16,
+                load_asr=True,
+            )
+            sampling_rate = model.sampling_rate
+            logger.info("Model loaded on cuda (ZeroGPU).")
         return _gen_core(*args, **kwargs)
 
-    generate_fn = _gen_gpu
     logger.info("Using spaces.GPU() wrapper.")
-except ImportError:
-    logger.info("spaces module not found, running without GPU wrapper.")
 
 # ---------------------------------------------------------------------------
 # Build and launch demo — reuses the full UI from omnivoice.cli.demo
