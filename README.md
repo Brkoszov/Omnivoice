@@ -1,6 +1,6 @@
 ---
 title: OmniVoice
-emoji: 😻
+emoji: 🌍
 colorFrom: green
 colorTo: indigo
 sdk: gradio
