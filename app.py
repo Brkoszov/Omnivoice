@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format="%(asctime)s %(name)s %(levelname)s: %(message)s",
 )
 logging.getLogger("omnivoice").setLevel(logging.DEBUG)
