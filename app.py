@@ -4,8 +4,15 @@ HuggingFace Space entry point for OmniVoice demo.
 
 """
 
+import logging
 import os
 from typing import Any, Dict
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+)
+logging.getLogger("omnivoice").setLevel(logging.DEBUG)
 
 import numpy as np
 import spaces
