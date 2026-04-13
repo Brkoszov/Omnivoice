@@ -5,6 +5,7 @@ transformers==5.3
 accelerate
 pydub
 soundfile
+librosa
 numpy
 gradio
 hf_transfer

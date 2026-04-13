@@ -29,10 +29,10 @@ from pathlib import Path
 def read_test_list(path):
     """Read a JSONL test list file.
 
-    Each line should be a JSON object with fields:
-        id, text, ref_audio, ref_text, language_id, language_name, duration, speed
-
-    language_id, language_name, duration, and speed are optional (default to None).
+    Each line should be a JSON object.  Only ``id`` and ``text`` are required;
+    all other fields are optional (default to ``None``):
+        id, text, ref_audio, ref_text, instruct,
+        language_id, language_name, duration, speed
 
     Returns a list of dicts.
     """
@@ -58,6 +58,7 @@ def read_test_list(path):
                 "language_name": obj.get("language_name"),
                 "duration": obj.get("duration"),
                 "speed": obj.get("speed"),
+                "instruct": obj.get("instruct"),
             }
             samples.append(sample)
     return samples
