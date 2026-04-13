@@ -85,17 +85,15 @@ def _gen_core(
             ref_text=ref_text,
         )
 
-    if mode == "design":
-        if instruct and instruct.strip():
-            kw["instruct"] = instruct.strip()
+    if instruct and instruct.strip():
+        kw["instruct"] = instruct.strip()
 
     try:
         audio = model.generate(**kw)
     except Exception as e:
         return None, f"Error: {type(e).__name__}: {e}"
 
-    waveform = audio[0].squeeze(0).numpy()
-    waveform = (waveform * 32767).astype(np.int16)
+    waveform = (audio[0] * 32767).astype(np.int16)
     return (sampling_rate, waveform), "Done."
 
 
