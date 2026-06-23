@@ -15,7 +15,6 @@ logging.basicConfig(
 logging.getLogger("omnivoice").setLevel(logging.DEBUG)
 
 import numpy as np
-import spaces
 import torch
 from omnivoice import OmniVoice, OmniVoiceGenerationConfig
 from omnivoice.cli.demo import build_demo
@@ -23,7 +22,7 @@ from omnivoice.cli.demo import build_demo
 # ---------------------------------------------------------------------------
 # Model loading
 # ---------------------------------------------------------------------------
-CHECKPOINT = os.environ.get("OMNIVOICE_MODEL", "k2-fsa/OmniVoice")
+CHECKPOINT = r"F:\AI_Projekt\omni\OmniVoice"
 
 print(f"Loading model from {CHECKPOINT} to cuda ...")
 model = OmniVoice.from_pretrained(
@@ -98,11 +97,10 @@ def _gen_core(
 
 
 # ---------------------------------------------------------------------------
-# ZeroGPU wrapper
+# Generation wrapper
 # ---------------------------------------------------------------------------
 
 
-@spaces.GPU(duration=60)
 def generate_fn(*args, **kwargs):
     return _gen_core(*args, **kwargs)
 
@@ -113,4 +111,4 @@ def generate_fn(*args, **kwargs):
 demo = build_demo(model, CHECKPOINT, generate_fn=generate_fn)
 
 if __name__ == "__main__":
-    demo.queue().launch()
+    demo.queue().launch(share=True)
