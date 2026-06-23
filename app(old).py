@@ -22,7 +22,7 @@ from omnivoice.cli.demo import build_demo
 # ---------------------------------------------------------------------------
 # Model loading
 # ---------------------------------------------------------------------------
-CHECKPOINT = r"/content/Omnivoice/models"
+CHECKPOINT = r"F:\AI_Projekt\omni\OmniVoice"
 
 print(f"Loading model from {CHECKPOINT} to cuda ...")
 model = OmniVoice.from_pretrained(
