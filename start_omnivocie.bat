@@ -9,6 +9,6 @@ echo Using isolated environment in .venv...
 set "PATH=C:\Users\ayaka\.local\bin;%CD%\.venv\Scripts;%CD%\.venv\bin;%PATH%"
 
 :: Run the application using uv run (which handles the venv automatically)
-uv run app.py
+uv run app_Local.py
 
 pause
