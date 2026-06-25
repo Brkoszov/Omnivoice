@@ -75,20 +75,29 @@ def split_text_into_chunks(text, max_chars=200):
 # ---------------------------------------------------------------------------
 # Generation Logic
 # ---------------------------------------------------------------------------
-def generate_audiobook(epub_path, ref_audio_path, language="Auto", instruct=""):
-    # 1. Extrakce kapitol
-    chapters = extract_chapters_from_epub(epub_path)
-    if not chapters:
-        return "No chapters found or error reading EPUB."
-
-    status_log = f"Found {len(chapters)} chapters. Starting generation...\n"
+def generate_audiobook(selected_chapters, all_chapters, ref_audio_path, language="Auto", instruct=""):
+    if not all_chapters:
+        return "No chapters data available. Please upload an EPUB first."
     
-    for i, (title, text) in enumerate(chapters):
-        status_log += f"\n--- Chapter {i+1}: {title} ---\n"
+    if not selected_chapters:
+        return "Please select at least one chapter to generate."
+
+    status_log = f"Starting generation for {len(selected_chapters)} selected chapters...\n"
+    
+    # Create a map of title -> text from all_chapters
+    chapter_map = {title: text for title, text in all_chapters}
+    
+    for title in selected_chapters:
+        text = chapter_map.get(title)
+        if not text:
+            status_log += f"Error: Could not find text for chapter {title}\n"
+            continue
+            
+        status_log += f"\n--- Generating: {title} ---\n"
         
         # Vytvoření adresáře pro danou kapitolu
         safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')[:30]
-        chapter_dir = os.path.join(DRIVE_OUTPUT_DIR, f"Chapter_{i+1}_{safe_title}")
+        chapter_dir = os.path.join(DRIVE_OUTPUT_DIR, f"Chapter_{safe_title}")
         os.makedirs(chapter_dir, exist_ok=True)
 
         # Konfigurace generování
@@ -134,13 +143,13 @@ def generate_audiobook(epub_path, ref_audio_path, language="Auto", instruct=""):
         # Slučování celé kapitoly do jednoho souboru
         if chapter_waveforms:
             full_chapter_waveform = np.concatenate(chapter_waveforms)
-            chapter_final_path = os.path.join(DRIVE_OUTPUT_DIR, f"Chapter_{i+1:02d}_{safe_title}.wav")
+            chapter_final_path = os.path.join(DRIVE_OUTPUT_DIR, f"{safe_title}.wav")
             sf.write(chapter_final_path, full_chapter_waveform, sampling_rate)
             status_log += f"Saved: {chapter_final_path}\n"
         else:
-            status_log += f"No audio generated for Chapter {i+1}.\n"
+            status_log += f"No audio generated for {title}.\n"
 
-    return status_log + "\n✅ Audiobook generation complete!"
+    return status_log + "\n✅ Selected chapters generation complete!"
 
 # ---------------------------------------------------------------------------
 # Gradio UI
@@ -148,22 +157,51 @@ def generate_audiobook(epub_path, ref_audio_path, language="Auto", instruct=""):
 def build_ui():
     with gr.Blocks(title="OmniVoice Audiobook Generator") as demo:
         gr.Markdown("# 📚 OmniVoice Audiobook Generator")
-        gr.Markdown("Nahrajte EPUB knihu a referenční audio pro automatickou syntézu celé knihy.")
+        gr.Markdown("Nahrajte EPUB knihu a referenční audio pro automatickou syntézu vybraných kapitol.")
         
+        # State to store parsed chapters: [(title, text), ...]
+        chapters_state = gr.State([])
+
         with gr.Row():
             with gr.Column():
                 epub_input = gr.File(label="EPUB soubor", file_types=[".epub"])
+                
+                # Chapter selection UI
+                chapter_selection = gr.CheckboxGroup(
+                    label="Vyberte kapitoly pro generování", 
+                    choices=[], 
+                    value=[]
+                )
+                
                 ref_audio_input = gr.Audio(label="Referenční audio (klonování)", type="filepath")
                 lang_input = gr.Textbox(label="Jazyk", value="Auto", placeholder="Auto nebo např. English")
                 instr_input = gr.Textbox(label="Instrukce (volitelně)", placeholder="Např. 'Slowly, calm voice'")
-                generate_btn = gr.Button("Generovat audioknihu", variant="primary")
+                generate_btn = gr.Button("Generovat vybrané kapitoly", variant="primary")
             
             with gr.Column():
                 output_log = gr.Textbox(label="Průběh generování", lines=20, interactive=False)
         
+        # Function to handle EPUB upload and update chapter list
+        def on_epub_upload(file_path):
+            if not file_path:
+                return [], []
+            
+            chapters = extract_chapters_from_epub(file_path)
+            if not chapters:
+                return gr.update(value=[], info="Error parsing EPUB"), []
+            
+            titles = [title for title, text in chapters]
+            return gr.update(choices=titles, value=titles), chapters
+
+        epub_input.change(
+            fn=on_epub_upload,
+            inputs=[epub_input],
+            outputs=[chapter_selection, chapters_state]
+        )
+        
         generate_btn.click(
             fn=generate_audiobook,
-            inputs=[epub_input, ref_audio_input, lang_input, instr_input],
+            inputs=[chapter_selection, chapters_state, ref_audio_input, lang_input, instr_input],
             outputs=output_log
         )
     return demo
